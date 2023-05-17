@@ -1,1 +1,13 @@
+select inst_id, process, status, thread#, sequence#, block#, blocks from gv$managed_standby
 
+select name,value,time_computed,datum_time from v$dataguard_stats where name like '%lag';
+
+- View gap
+SQL> alter session set nls_date_format='dd-mm-yy hh24:mi:ss';
+SQL> select max(checkpoint_time) from v$datafile_header;
+SQL> select inst_id, max(timestamp) from gv$recovery_progress group by inst_id;
+SQL> select inst_id,opname,timestamp from gv$session_longops where opname='Media Recovery' and target_desc='Last Applied Redo';
+SQL> select PROCESS,STATUS, CLIENT_PROCESS,THREAD#,SEQUENCE#,BLOCK# from v$managed_standby where process = 'MRP0' or client_process='LGWR';
+col name format a40
+col value format a20
+select * from v$dataguard_stats;
