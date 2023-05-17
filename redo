@@ -5,8 +5,8 @@ select trunc(completion_time) day_,
 		round(sum(blocks*block_size)/1024/1024/count(*)) avg_log_size_mb
 		--min(first_time), max(first_time)
 from v$archived_log
---and completion_time >= to_date('2006-04-01 00:00:00', 'YYYY-MM-DD HH24:MI:SS')
---and completion_time < to_date('2006-05-26 00:00:00', 'YYYY-MM-DD HH24:MI:SS')
+--and completion_time >= to_date('2023-05-16 00:00:00', 'YYYY-MM-DD HH24:MI:SS')
+--and completion_time < to_date('2023-05-17 00:00:00', 'YYYY-MM-DD HH24:MI:SS')
 group by trunc(completion_time)
 order by 1 DESC
 
