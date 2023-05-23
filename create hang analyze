@@ -1,0 +1,3 @@
+oradebug setmypid
+oradebug unlimit
+oradebug -g all hanganalyze 3
