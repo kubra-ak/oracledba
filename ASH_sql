@@ -9,7 +9,7 @@ with ash_hist as
       gv$active_session_history s,
       dba_users u
       where 1=1
-        and sample_time between to_timestamp('2017-01-16 12:30:00', 'YYYY-MM-DD HH24:MI:SS') and to_timestamp('2017-01-21 13:00:00', 'YYYY-MM-DD HH24:MI:SS')
+        and sample_time between to_timestamp('2023-01-16 12:30:00', 'YYYY-MM-DD HH24:MI:SS') and to_timestamp('2023-01-21 13:00:00', 'YYYY-MM-DD HH24:MI:SS')
         and s.user_id = u.user_id
         and event is not null
         --and event like 'log file sync'
@@ -37,7 +37,7 @@ with ash_hist as
       dba_hist_active_sess_history s,
       dba_users u
       where 1=1
-        and sample_time between to_timestamp('2017-01-16 12:30:00', 'YYYY-MM-DD HH24:MI:SS') and to_timestamp('2017-01-21 13:00:00', 'YYYY-MM-DD HH24:MI:SS')
+        and sample_time between to_timestamp('2023-01-16 12:30:00', 'YYYY-MM-DD HH24:MI:SS') and to_timestamp('2023-01-21 13:00:00', 'YYYY-MM-DD HH24:MI:SS')
         and s.user_id = u.user_id
         and event is not null
         --and event like 'log file sync'
