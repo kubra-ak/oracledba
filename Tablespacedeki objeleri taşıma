@@ -1,0 +1,106 @@
+-- Default Tablespace Değiştirme
+
+SELECT username,default_tablespace,'alter user '||username||' default tablespace TS_DATA_NEW;
+alter user '||username||' quota unlimited on TS_DATA_NEW;'
+FROM dba_users
+WHERE default_tablespace='TS_DATA';
+
+-- Objelerin Taşınması
+
+* Tablo Partitionların Taşınması
+select 'ALTER TABLE '||table_owner||'.'||table_name||'  MOVE PARTITION '||partition_name||' TABLESPACE TS_DATA_NEW parallel 8;'
+from dba_tab_partitions 
+where tablespace_name = 'TS_DATA';
+
+* Subpartitionların taşınması
+select 'ALTER TABLE '||table_owner||'.'||table_name||'  MOVE SUBPARTITION '||subpartition_name||' TABLESPACE TS_DATA_NEW parallel 8;' 
+from dba_tab_subpartitions 
+where tablespace_name = 'TS_DATA';
+
+* Lobların taşınması
+SELECT owner,table_name,COLUMN_NAME,SEGMENT_NAME,TABLESPACE_NAME, 'alter table '||owner||'.'||table_name||' move lob ('||COLUMN_NAME||') store as '||SEGMENT_NAME||' (tablespace TS_DATA_NEW);'
+from dba_lobs
+where tablespace_name ='TS_DATA';
+
+* Lob partitionların taşınması
+SELECT 'alter table ' || TABLE_OWNER || '.' || TABLE_NAME || ' move partition ' || partition_name || ' lob (' || COLUMN_NAME || ') store as  (tablespace TS_DATA_NEW);' 
+FROM DBA_LOB_PARTITIONS 
+WHERE TABLESPACE_NAME = 'TS_DATA' ; 
+
+* İndexlerin taşınması
+select distinct 'ALTER INDEX '||owner||'.'||index_name||' REBUILD ONLINE TABLESPACE TS_DATA_NEW PARALLEL 16; ALTER INDEX '||owner||'.'||index_name||' NOPARALLEL;' 
+from dba_indexes 
+where tablespace_name = 'TS_DATA';
+
+* İndex partitionların taşınması
+select 'ALTER INDEX '||index_owner||'.'||index_name||' REBUILD PARTITION '||partition_name||' TABLESPACE TS_DATA_NEW
+ONLINE PARALLEL 16; ALTER INDEX '||index_owner||'.'||index_name||' NOPARALLEL;'
+from dba_ind_partitions
+where tablespace_name = 'TS_DATA';
+
+
+**** İndex kontrolü :
+
+select  * from dba_indexes where tablespace_name = 'TS_DATA' and status <> 'USABLE'; 
+
+select  * from dba_ind_partitions where tablespace_name = 'TS_DATA' and status <> 'USABLE'; 
+
+
+
+
+**** Tüm objelerin taşınması için script****
+
+SELECT *
+     FROM (SELECT 0 sira,
+                  owner,
+                  table_name,
+                     'alter table ' || owner || '.' || table_name || ' modify default attributes tablespace  TBS_EXISTING ;'    move_sql
+             FROM dba_part_tables
+            WHERE DEF_TABLESPACE_NAME = '&&tbsname'
+           UNION ALL
+           SELECT 1 sira,
+                  owner,
+                  table_name,
+                     'alter index ' || owner || '.' || index_name || ' modify default attributes tablespace  TBS_EXISTING ;'    move_sql
+             FROM dba_part_indexes
+            WHERE DEF_TABLESPACE_NAME = '&&tbsname'
+           UNION ALL
+           SELECT 2 sira,
+                  owner,
+                  table_name,
+                     'ALTER TABLE ' || owner || '.' || table_name || '  MOVE TABLESPACE  TBS_EXISTING parallel 8;'    move_sql
+             FROM dba_tables
+            WHERE tablespace_name = '&&tbsname'
+           UNION ALL
+           SELECT 3 sira,
+                  table_owner                                   owner,
+                  table_name,
+                     'ALTER TABLE ' || table_owner || '.' || table_name || '  MOVE PARTITION ' || partition_name || ' TABLESPACE  TBS_EXISTING parallel 8;'    move_sql
+             FROM dba_tab_partitions
+            WHERE tablespace_name = '&&tbsname'
+           UNION ALL
+           SELECT 4 sira,
+                  owner,
+                  table_name,
+                     'alter table ' || owner || '.' || table_name || ' move lob (' || COLUMN_NAME || ') store as ' || SEGMENT_NAME || ' (tablespace  TBS_EXISTING );'    move_sql
+             FROM dba_lobs
+            WHERE tablespace_name = '&&tbsname'
+           UNION ALL
+           SELECT 5 sira,
+                  owner,
+                  table_name,
+                     'ALTER INDEX ' || owner || '.' || index_name || ' REBUILD TABLESPACE  TBS_EXISTING PARALLEL 16;
+  ALTER INDEX ' || owner  || '.' || index_name || ' NOPARALLEL;'    move_sql
+             FROM dba_indexes
+            WHERE tablespace_name = '&&tbsname'
+           UNION ALL
+           SELECT 6 sira,
+                  i.owner,
+                  i.table_name,
+                     'ALTER INDEX ' || p.index_owner || '.' || p.index_name || ' REBUILD PARTITION ' || p.partition_name || ' TABLESPACE  TBS_EXISTING PARALLEL 16;
+  ALTER INDEX ' || p.index_owner || '.' || p.index_name || ' NOPARALLEL;'
+             FROM dba_ind_partitions p, dba_indexes i
+            WHERE     p.tablespace_name = '&&tbsname'
+                  AND p.index_owner = i.OWNER
+                  AND p.index_name = i.index_name) aa
+ ORDER BY 2, 3, 1;
