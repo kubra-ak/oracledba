@@ -1,1 +1,38 @@
+Pyhsical standby db nin flashback özelliği açık olmalıdır.
+db_recovery_file_dest_size parametresini kontrol et.
 
+SQL> select open_mode,database_role,flashback_on from v$database;
+
+Result:
+open_mode  database_role     flashback_on 
+MOUNT      PHYSICAL STANDBY   NO
+
+
+Flashback modu açma ve standbyı snapshot moduna almak için:
+
+SQL> ALTER DATABASE RECOVER MANAGED STANDBY DATABASE CANCEL;
+SQL> SHUTDOWN IMMEDIATE;
+SQL> STARTUP MOUNT;
+SQL> ALTER DATABASE FLASHBACK ON;
+SQL> ALTER DATABASE CONVERT TO SNAPSHOT STANDBY;
+SQL> ALTER DATABASE OPEN;
+
+SQL> select open_mode,database_role,flashback_on from v$database;
+
+Result:
+open_mode   database_role     flashback_on  
+READ/WRITE  SNAPSHOT STANDBY   YES
+
+
+Snapshot standbyı  physical standby’a çevirmek için:
+
+SQL> ALTER DATABASE CONVERT TO PHYSICAL STANDBY; 
+SQL> SHUTDOWN IMMEDIATE; 
+SQL> STARTUP MOUNT; 
+SQL> ALTER DATABASE FLASHBACK OFF; 
+SQL> ALTER DATABASE RECOVER MANAGED STANDBY DATABASE DISCONNECT;
+SQL> select open_mode,database_role,flashback_on from v$database;
+
+Result:
+open_mode  database_role     flashback_on 
+MOUNT      PHYSICAL STANDBY   NO
