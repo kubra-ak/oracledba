@@ -1,0 +1,9 @@
+SELECT TO_CHAR (sample_time, 'dd/mm/yyyy hh24:mi') "saat", COUNT (*), sql_id
+    FROM gv$active_session_history
+   WHERE     sample_time BETWEEN TO_DATE ('21/06/2023 12:30:00',
+                                          'dd/mm/yyyy hh24:mi:ss')
+                             AND TO_DATE ('21/06/2023 15:30:00',
+                                          'dd/mm/yyyy hh24:mi:ss')
+         AND sql_id = '4xvb60jfvpsqh'
+GROUP BY TO_CHAR (sample_time, 'dd/mm/yyyy hh24:mi'), sql_id
+ORDER BY 1;
