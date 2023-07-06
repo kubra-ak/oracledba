@@ -1,0 +1,21 @@
+nohup expdp "'/ as sysdba'" parfile=parfile.par &
+parfile örnek:
+parfile.par
+
+directory=DATA_PUMP_DIR
+dumpfile=pimsfull.dmp
+logfile=imppimsfull.log
+TABLE_EXISTS_ACTION=SKIP
+EXCLUDE=SCHEMA:"IN('SYS','SYSTEM','SYSMAN','DBMAIN')"
+
+**transform=segment_attributes:n  --  hepsini userın default tablespaceinde oluşturur.
+**export ORACLE_PDB_SID=DEVTESTDB  --pluggable export için
+
+
+nohup impdp "'/ as sysdba'"  remap_schema=PHS:PHSNEW directory=EXPORT_DIR dumpfile=prm_metadata.dmp logfile=impprmeta_yeni.log remap_tablespace=TEMP01:TEMP transform=segment_attributes:n &
+nohup impdp "'/ as sysdba'"  remap_schema=PHS:PHSNEW directory=EXPORT_DIR dumpfile=phs_data0626.dmp logfile=impphsdata.log TABLE_EXISTS_ACTION=REPLACE  &
+
+
+exclude schema:
+
+nohup expdp "'/ as sysdba'"  full=y directory=DATA_PUMP_DIR dumpfile=ccminimetadata.dmp logfile=expccminimetadata.log content=METADATA_ONLY exclude=schema:\"IN \(\'SYS\',\'SYSTEM\',\'SYSADM\'\)\" &
