@@ -1,0 +1,34 @@
+- export jobı bulma
+select JOB_NAME,state from dba_datapump_jobs;
+select * from dba_datapump_jobs;
+
+bu sorgudan gelen job_name alınır.
+
+expdp \"/ as sysdba\" attach=SYS_EXPORT_SCHEMA_01
+export > status
+
+status ile jobın statüsütne bakılır.
+
+Export> kill_job
+
+Are you sure you wish to stop this job ([yes]/no): yes
+
+ile export jobı kill edilir.
+
+- jobın kill edilip edilmediği kontrol dilir.
+select * from dba_datapump_jobs;
+
+
+
+
+çalisan exportu control c ile kestikten sonra bide kill et çünkü hala arka planda çalisiyor olabilir.
+
+
+SQL> select sid,serial# from v$session where module like '%Pump%';
+
+       SID    SERIAL#
+---------- ----------
+      3059      31193
+      3626      37161
+
+SQL> alter system kill session '3059,31193';
