@@ -1,0 +1,25 @@
+select blocking_session, sql_id from gv$session where blocking_session is not null
+
+
+select
+   blocking_session,
+   sid,
+   serial#,
+   wait_class,
+   seconds_in_wait
+from
+   v$session
+where
+   blocking_session is not NULL
+order by
+   blocking_session;
+
+
+Burda gelen blocking sessiondaki sid kill edilir
+---
+
+
+select 'alter system kill session ' || '''' || s.sid || ',' || s.serial#||',@'||s.inst_id||''';'
+from gv$session s
+WHERE s.type != 'BACKGROUND' and
+s.sid in (select final_blocking_session from gv$session where blocking_session is not null);
