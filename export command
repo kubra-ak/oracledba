@@ -8,6 +8,9 @@ logfile=imppimsfull.log
 TABLE_EXISTS_ACTION=SKIP
 EXCLUDE=SCHEMA:"IN('SYS','SYSTEM','SYSMAN','DBMAIN')"
 
+export ORACLE_PDB_SID=DEVTESTDB
+expdp \'/ as sysdba\' schemas=AKODE_TEST directory=DATAPUMP3   dumpfile=AKODE_TEST_2306.dmp logfile=AKODE_TEST_2306.log
+
 **transform=segment_attributes:n  --  hepsini userın default tablespaceinde oluşturur.
 **export ORACLE_PDB_SID=DEVTESTDB  --pluggable export için
 
