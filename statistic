@@ -1,0 +1,16 @@
+
+EXEC DBMS_STATS.gather_schema_stats('JIRAPORD', estimate_percent => 5, cascade => TRUE);
+
+EXEC DBMS_STATS.gather_table_stats('schema', 'table');
+
+
+
+
+
+*****sql stats update time
+
+select count(*), stats_update_time
+from dba_tab_stats_history  
+where owner='JIRAPROD'
+and table_name='JIRAISSUE'
+group by stats_update_time;
