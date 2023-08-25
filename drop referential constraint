@@ -1,0 +1,7 @@
+SELECT DISTINCT 'ALTER TABLE ' || c.owner || '.' || c.table_name || ' drop CONSTRAINT ' || c.constraint_name || ';'
+    FROM dba_constraints r, dba_constraints c
+    WHERE r.owner = c.r_owner
+      AND r.constraint_name = c.r_constraint_name
+    START WITH r.owner in ('CUSTOMER','OPUS_CORE') AND r.table_name like 'WIP_%%'
+    CONNECT BY NOCYCLE r.owner = PRIOR c.owner
+      AND r.table_name = PRIOR c.table_name;
