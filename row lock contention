@@ -1,0 +1,138 @@
+http://www.cnblogs.com/jyzhao/p/8628184.html
+http://www.cnblogs.com/jyzhao/p/8716546.html
+http://feed.askmaclean.com/archives/dba_hist_active_sess_history.html
+---------------
+select *
+ from (select a.inst_id, a.sid, a.serial#,
+              a.sql_id,
+              a.event,
+              a.status,
+              connect_by_isleaf as isleaf,
+              sys_connect_by_path(a.SID||'@'||a.inst_id, ' <- ') tree,
+              level as tree_level
+         from gv$session a
+        start with a.blocking_session is not null
+       connect by (a.sid||'@'||a.inst_id) = prior (a.blocking_session||'@'||a.blocking_instance))
+where isleaf = 1
+order by tree_level asc;
+----------------
+Create m_ash table:
+
+create table m_ash20230322 as select * from dba_hist_active_sess_history where dbid=&dbid;
+
+select to_char(sample_time, 'yyyy-mm-dd hh24:mi'), count(1)
+  FROM m_ash20180322
+ group by to_char(sample_time, 'yyyy-mm-dd hh24:mi')
+ order by 1;
+
+--Determine the top n event for each sample point.
+select t.dbid,
+       t.sample_id,
+       t.sample_time,
+       t.instance_number,
+       t.event,
+       t.session_state,
+       t.c session_count
+  from (select t.*,
+               rank() over(partition by dbid, instance_number, sample_time order by c desc) r
+          from (select /*+ parallel 8 */
+                 t.*,
+                 count(*) over(partition by dbid, instance_number, sample_time, event) c,
+                 row_number() over(partition by dbid, instance_number, sample_time, event order by 1) r1
+                  from dba_hist_active_sess_history t
+                where sample_time >
+                    to_timestamp('2023-03-22 09:00:00',
+                                 'yyyy-mm-dd hh24:mi:ss')
+                and sample_time <
+                    to_timestamp('2023-03-22 10:00:00',
+                                 'yyyy-mm-dd hh24:mi:ss')
+                ) t
+         where r1 = 1) t
+ where r < 3
+ order by dbid, instance_number, sample_time, r;
+
+--Determine the final top holder
+
+select 
+ level                     lv,
+ connect_by_isleaf         isleaf,
+ connect_by_iscycle        iscycle,
+ t.dbid,
+ t.sample_id,
+ t.sample_time,
+ t.instance_number,
+ t.session_id,
+ t.sql_id,
+ t.session_type,
+ t.event,
+ t.session_state,
+ t.blocking_inst_id,
+ t.blocking_session,
+ t.blocking_session_status
+  from m_ash20180322 t
+where sample_time >
+    to_timestamp('2023-03-22 09:00:00',
+                 'yyyy-mm-dd hh24:mi:ss')
+and sample_time <
+    to_timestamp('2023-03-22 10:00:00',
+                 'yyyy-mm-dd hh24:mi:ss')
+ start with blocking_session is not null
+connect by nocycle
+ prior dbid = dbid
+       and prior sample_time = sample_time
+          /*and ((prior sample_time) - sample_time between interval '-1'
+          second and interval '1' second)*/
+       and prior blocking_inst_id = instance_number
+       and prior blocking_session = session_id
+       and prior blocking_session_serial# = session_serial#
+ order siblings by dbid, sample_time;
+ 
+--For further screening, find the top holder with isleaf=1:
+--top holder:
+ select t.lv,
+       t.iscycle,
+       t.dbid,
+       t.sample_id,
+       t.sample_time,
+       t.instance_number,
+       t.session_id,
+       t.sql_id,
+       t.session_type,
+       t.event,
+       t.seq#,
+       t.session_state,
+       t.blocking_inst_id,
+       t.blocking_session,
+       t.blocking_session_status,
+       t.c blocking_session_count
+  from (select t.*,
+               row_number() over(partition by dbid, instance_number, sample_time order by c desc) r
+          from (select t.*,
+                       count(*) over(partition by dbid, instance_number, sample_time, session_id) c,
+                       row_number() over(partition by dbid, instance_number, sample_time, session_id order by 1) r1
+                  from (select /*+ parallel 8 */
+                         level              lv,
+                         connect_by_isleaf  isleaf,
+                         connect_by_iscycle iscycle,
+                         t.*
+                          from m_ash20230322 t
+                        where sample_time >
+                            to_timestamp('2023-03-22 09:00:00',
+                                         'yyyy-mm-dd hh24:mi:ss')
+                        and sample_time <
+                            to_timestamp('2023-03-22 10:00:00',
+                                         'yyyy-mm-dd hh24:mi:ss')
+                         start with blocking_session is not null
+                        connect by nocycle
+                         prior dbid = dbid
+                               and prior sample_time = sample_time
+                                  /*and ((prior sample_time) - sample_time between interval '-1'
+                                  second and interval '1' second)*/
+                               and prior blocking_inst_id = instance_number
+                               and prior blocking_session = session_id
+                               and prior
+                                    blocking_session_serial# = session_serial#) t
+                 where t.isleaf = 1) t
+         where r1 = 1) t
+ where r < 3
+ order by dbid, sample_time, r; 
