@@ -1,0 +1,17 @@
+  SELECT recid,
+         file#,
+         TO_CHAR (creation_change#),
+         TO_CHAR (incremental_change#) inc#,
+         TO_CHAR (checkpoint_change#) ckp#,
+         datafile_blocks BLKS,
+         block_size blksz,
+         blocks_read READ,
+         ROUND ( (blocks_read / datafile_blocks) * 100, 2) "%READ",
+         blocks WRTN,
+         ROUND ( (blocks / datafile_blocks) * 100, 2) "%WRTN",
+         completion_time,
+         used_change_tracking
+    FROM v$backup_datafile
+   WHERE     COMPLETION_TIME >= TO_DATE ('04/10/23 20:00', 'dd/mm/yy hh24:mi')
+         AND used_change_tracking = 'NO'
+ORDER BY 12;
