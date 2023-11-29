@@ -11,6 +11,6 @@ EXEC DBMS_STATS.gather_table_stats('schema', 'table');
 
 select count(*), stats_update_time
 from dba_tab_stats_history  
-where owner='JIRAPROD'
-and table_name='JIRAISSUE'
+where owner='&&'
+and table_name='&&'
 group by stats_update_time;
