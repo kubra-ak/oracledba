@@ -1,0 +1,6 @@
+srvctl config scan  --> Scan name ve Ip bilgileri
+nslookup IP
+
+cluster name: 
+olsnodes -c
+racdb-cls
