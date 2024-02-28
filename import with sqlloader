@@ -1,0 +1,25 @@
+https://gokhanata.com/2021/12/oracle-sqlloader-kullanimi/
+
+exp:
+***sunucuda aşağıdaki gibi control.ctl dosyası oluşturuldu:
+LOAD DATA
+INFILE 'summary_2018sales.csv'
+INSERT INTO TABLE  OPERATION.GIB_SUMMARY_SALES2018
+FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+(FILENAME,
+RECORDTYPE,
+ LREF,
+ ISTAR, 
+ ODEMETAR,
+ ISLEMTUTAR,
+ ASILTUTAR,
+ PARABIRIM,
+ BRUTTUTAR,
+ BRUTTAHTUTAR)
+
+***sunucu üzerinde sqlldr komutu çalıştırıldı:
+sqlldr userid=SYSTEM control=control.ctl log=track.log
+Password:
+
+karakter sorununu çözmek için sunucu üzerinden NLS parametresi setledik:
+export NLS_LANG=AMERICAN_AMERICA.UTF8
