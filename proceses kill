@@ -1,0 +1,12 @@
+SELECT a.last_call_et,a.inst_id,'ALTER SYSTEM KILL SESSION '||CHR(39)||SID||','||A.SERIAL#||',@'||a.inst_id||CHR(39)||' immediate;','kill -9 '||b.spid,a.osuser,a.status,a.username,module
+FROM gv$session a , gv$process b
+WHERE a.paddr=b.addr and a.inst_id=b.inst_id
+and a.type='USER' and a.status='KILLED' and a.inst_id=2
+order by a.last_call_et;
+
+ a.status='KILLED' and a.inst_id=2 yerine  where koşuluna sid ve serial 
+ 
+
+sunucudan kill
+
+kill -9 spid
