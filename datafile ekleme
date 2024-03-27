@@ -1,0 +1,16 @@
+Bigfile
+
+SELECT * FROM DBA_data_files where tablespace_name = 'DATA';  
+-->  gelen sorgudan file id  alinir,  MAXBYTES dan fazla bir degere extend edilir.
+
+SELECT sum(bytes)/1024/1024/1024 ,sum(maxbytes)/1024/1024/1024 FROM DBA_data_files where tablespace_name = 'DATA';
+
+  alter database datafile file_id autoextend on maxsize 420G;
+
+
+  
+Değilse;
+
+SELECT * FROM DBA_data_files where tablespace_name = 'DATA';
+
+alter tablespace DATA  add datafile '+DATA' size 100M autoextend on next 100m maxsize unlimited;
