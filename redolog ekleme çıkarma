@@ -1,0 +1,78 @@
+Öncelikle mevcut online redolog dosyalarinin boyutunu görelim.
+
+sqlplus /nolog
+
+connect / as sysdba
+
+SQL> select group#, bytes, status from v$log;
+
+GROUP# BYTES STATUS
+------- -------- --------
+1       52428800    INACTIVE
+2       52428800    CURRENT
+3       52428800    INACTIVE
+
+50Mb ‘lik “3? adet redolog dosyamiz oldugu görünüyor. Status ‘u CURRENT olarak görünen log dosyasi suanda aktif.
+
+Redolog grubu üyelerinin isimlerini listeleyelim.
+
+SQL> select group#, member from v$logfile;
+
+GROUP#     MEMBER
+-------  -------------------------------
+1         /data/oradata/log/redolog1.log
+2         /data/oradata/log/redolog2.log
+3         /data/oradata/log/redolog3.log
+
+SQL> alter system switch logfile;
+
+Logswitch islemini tamamlayip asagidaki komutu girerek 4 ‘ncu redolog grubunun aktif oldugunu teyyit edelim.
+Bu noktada dikkat etmemiz gereken nokta redolog grubu switchlog edildiginde INACTIVE moduna düsmesi ortalama 5dk kadar sürecektir.
+INACTIVE veya UNUSED mode ‘da olmayan redolog veritabanindan drop edilemez.
+
+
+
+
+
+
+
+
+
+
+alter database add logfile THREAD 1 GROUP 4 ('+DATA/CDBRSM/ONLINELOG/group_1.100') size 5120M;
+
+alter database add logfile THREAD 1 GROUP 5 ('+DATA/CDBRSM/ONLINELOG/group_2.101') size 5120M;
+
+alter database add logfile THREAD 1 GROUP 6 ('+DATA/CDBRSM/ONLINELOG/group_3.102') size 5120M;
+
+alter database add logfile THREAD 1 GROUP 7 ('+DATA/CDBRSM/ONLINELOG/group_4.103') size 5120M;
+
+ 
+
+ 
+
+ALTER DATABASE DROP LOGFILE GROUP 1;
+
+ALTER DATABASE DROP LOGFILE GROUP 2;
+
+ALTER DATABASE DROP LOGFILE GROUP 3;
+
+ 
+
+ 
+
+set linesize 2000
+
+set pagesize 2000
+
+set feed off
+
+ 
+
+SELECT A.*,Round(A.Count#*B.AVG#/1024/1024/1024) Daily_Avg_GB FROM (SELECT To_Char(First_Time,'YYYY-MM-DD') DAY, Count(1) Count# FROM v$log_history GROUP BY To_Char(First_Time,'YYYY-MM-DD') ORDER BY 1 DESC ) A, (SELECT Avg(BYTES) AVG#,Count(1) Count#,Max(BYTES) Max_Bytes,Min(BYTES) Min_Bytes FROM v$log ) B where rownum<10;
+
+
+
+hangi saatte ne kadar kayit gelmis bu da surdan görünüyor:
+
+database-> diagnose->log switch freq.map
