@@ -1,0 +1,24 @@
+  SELECT COUNT (*) cnt,
+         SUBSTR (sql_text, 1, 30) sql30,
+         MIN (sql_id) sql_id,
+         parsing_schema_name,
+         SYSDATE tarih
+    FROM v$sql
+GROUP BY SUBSTR (sql_text, 1, 30), parsing_schema_name, SYSDATE
+  HAVING COUNT (*) > 100 order by 1 desc;
+----------------------------------------------------------------------------------------------------------------------------------------------- 
+  SELECT a.sid,
+         c.username,
+         b.name,
+         a.VALUE,
+         ROUND ( (SYSDATE - c.logon_time) * 24) hours_connected
+    FROM v$sesstat a, v$statname b, v$session c
+   WHERE     c.sid = a.sid
+         AND a.statistic# = b.statistic#
+         AND a.VALUE > 0
+         AND b.name = 'parse count (hard)'
+ORDER BY a.VALUE desc;
+----------------------------------------------------------------------------------------------------------------------------------------------- 
+SELECT a.*, SYSDATE - b.startup_time days_old
+  FROM v$sysstat a, v$instance b
+WHERE a.name LIKE 'parse%';
