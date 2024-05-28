@@ -1,0 +1,21 @@
+CREATE tablo_yedek AS
+   SELECT *
+     FROM tablo
+          AS OF TIMESTAMP (TO_TIMESTAMP ('27/05/2024 11:20:00', 'DD/MM/YYYY HH24:MI:SS')) 
+    WHERE RECURRING_ID IN ('24137MBoIAaoddm7031');
+
+
+merge komutu:
+
+MERGE INTO TORUS_INT_CARD_SRV.BIN_NUMBERS t1
+     USING (SELECT * FROM OPERATION.AHMET_TEMP5) t2
+        ON (t1.CARDID = t2.CARDID)
+WHEN MATCHED
+THEN
+   UPDATE SET t1.UPPERBIN = t2.UPPERBIN
+
+
+MERGE [DB1]..[table]
+USING [DB2]..[table] ON [DB1]..[table].[ID] = [DB2]..[table].[ID]
+WHEN MATCHED THEN
+    UPDATE SET [DB1]..[table].[*] = [DB1]..[table].[*]
