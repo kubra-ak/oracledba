@@ -1,1 +1,1 @@
-alter table MSU.MSU_API_AUDIT drop partition AAAAA update global indexes;
+ALTER TABLE ABC DROP PARTITION PART1 UPDATE GLOBAL INDEXES;
