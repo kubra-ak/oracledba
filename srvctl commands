@@ -1,0 +1,81 @@
+ 1. STOP DATABASE :
+ ---------------------------
+ SYNTAX – srvctl stop database -d db_name [-o stop_options] where stop_options is normal/immediate(default)/transactional/abort
+ 
+ e.g
+ 
+ srvctl stop database -d PRODB -o normal
+ srvctl stop database -d PRODB -o immediate
+ srvctl stop database -d PRODB -o transactional
+ srvctl stop database -d PRODB -o abort
+ 
+ 2. START DATABASE
+ -------------------------------
+ SYNTAX – srvctl start database -d db_name [-o start_options] where start_option is nomount/mount/open(default)
+ 
+ e.g
+ 
+ srvctl start database -d PRODB -o nomount
+ srvctl start database -d PRODB -o mount
+ srvctl start database -d PRODB -o open
+ 
+ 
+ 3. STOP AN INSTANCE
+ -------------------------------------------
+ SYNTAX – srvctl stop instance -d db_unique_name [-i “instance_name_list”]} [-o stop_options] [-f]
+ e.g
+ 
+ srvctl stop instance -d PRODB -i PRODB1
+ 
+ 
+ 4. START AN INSTANCE
+ -------------------------------------------------
+ 
+ SYNTAX – srvctl start instance -d db_unique_name [-i “instance_name_list”} [-o start_options]
+ e.g
+ 
+ srvctl start instance -d PRODB -i PRODB1
+ 
+ 
+ 5. REMOVING DB FROM CRS:
+ ---------------------------------------------
+ SYNTAX – srvctl remove database -d db_unique_name [-f] [-y] [-v]
+ e.g
+ 
+ srvctl remove database -d PRODB -f -y
+ 
+ 
+ 6. ADDING DB IN CRS :
+ --------------------------------------------------
+ SYNTAX – srvctl add database -d db_unique_name -o ORACLE_HOME [-p spfile]
+ e.g
+ 
+ srvctl add database -d PRODB -o /u01/app/oracle/product/12.1.0.2/dbhome_1 -p +DATA/PRODDB/parameterfile/spfilePRODB.ora
+ 
+ 
+ 7. REMOVING AN INSTANCE FROM CRS:
+ -----------------------------------------------
+ SYNTAX – srvctl remove instance -d DB_UNIQUE_NAME -i INSTANCE_NAME
+ e.g
+ 
+ srvctl remove instance -d PRODB - I PRODB1
+ 
+ 
+ 8.ADDING AN INSTANCE TO CRS:
+ ----------------------------------------------
+ SYNTAX – srvctl add instance –d db_unique_name –i inst_name -n node_name
+ e.g
+ 
+ srvctl add instance -d PRODB - i PRODB1 -n rachost1
+ 
+ 
+ 9. Enable/disable auto restart of the instance
+ --------------------------------------------------
+ srvctl enable instance -d DB_UNIQUE_NAME-i INSTANCE_NAME
+ srvctl disable instance -d DB_UNIQUE_NAME-i INSTANCE_NAME
+ 
+ 
+ 10. Enable/disable auto restart of the database
+ --------------------------------------------------
+ srvctl enable database -d DB_UNIQUE_NAME
+ srvctl disable database -d DB_UNIQUE_NAME
