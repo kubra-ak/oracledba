@@ -1,0 +1,10 @@
+dcli -l root -g /root/dbs_group dbmcli -e  "list alerthistory attributes name,beginTime,alertMessage where alerttype=stateful and endtime=null"
+ 
+select cell_name from DBA_HIST_CELL_DISKTYPE             
+ 
+dbmcli -e  "list alerthistory attributes name,beginTime,alertMessage where alerttype=stateful and endtime=null"
+ 
+dcli -l root -g /root/cell_group cellcli -e "list alerthistory attributes name,beginTime,alertMessage where alerttype=stateful and endtime=null"
+ 
+dcli -l root -g /root/cell_group cellcli -e "list alerthistory attributes name,beginTime,alertMessage where alerttype=stateful and endtime=null"
+ 
