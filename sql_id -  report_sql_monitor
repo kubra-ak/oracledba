@@ -1,0 +1,3 @@
+SELECT dbms_sqltune.Report_sql_monitor(SQL_ID=>'xxx', TYPE=>'active') from dual;  --preferred
+SELECT dbms_sqltune.Report_sql_monitor(SQL_ID=>'xxx', TYPE=>'html') from dual;    --if not seen due to security issues.
+SELECT dbms_sqltune.Report_sql_monitor(SQL_ID=>'xxx', TYPE=>'text') from dual;  --if html or active  is prevented by security tools.
