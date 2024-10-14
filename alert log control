@@ -1,0 +1,2 @@
+adrci
+show alert -term -p "MESSAGE_TEXT like '%ORA%' and ORIGINATING_TIMESTAMP > '2024-09-25 09:55:37.840343 -08:00'"
