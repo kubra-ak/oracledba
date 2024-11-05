@@ -1,0 +1,10 @@
+select * from dba_sql_profiles;
+ 
+select * from table(dbms_xplan.display(format=>'ADVANCED')); 
+ 
+SELECT * FROM table(DBMS_XPLAN.DISPLAY_CURSOR('8y130a95xyr86'));
+
+ 
+SELECT * FROM table(DBMS_XPLAN.DISPLAY_AWR( sql_id=>'crtg1s4chjqhg',format =>'ALL') );
+
+ 
