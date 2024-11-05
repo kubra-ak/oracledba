@@ -1,0 +1,3 @@
+select count(*) from v$db_object_cache where property like 'HOTCOPY%' and name like 'select fs.*';
+
+ 
