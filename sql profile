@@ -7,4 +7,9 @@ SELECT * FROM table(DBMS_XPLAN.DISPLAY_CURSOR('8y130a95xyr86'));
  
 SELECT * FROM table(DBMS_XPLAN.DISPLAY_AWR( sql_id=>'crtg1s4chjqhg',format =>'ALL') );
 
+***aşağıdaki sqllerden gelen sonucu html olarak kaydedip kontrol edebilirsin
+SELECT dbms_sqltune.Report_sql_monitor(SQL_ID=>'cdwd422am5xgr', TYPE=>'active') from dual;  --preferred
+SELECT dbms_sqltune.Report_sql_monitor(SQL_ID=>'cdwd422am5xgr', TYPE=>'html') from dual;    --if not seen due to security issues.
+SELECT dbms_sqltune.Report_sql_monitor(SQL_ID=>'cdwd422am5xgr', TYPE=>'text') from dual;  --if html or active  is prevented by security tools.
+
  
