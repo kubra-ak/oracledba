@@ -1,0 +1,30 @@
+------max sized top n(=20,50,...etc)  cursors, if count is high possibley not using bind - 2024.08.14  , from yuksel saygin
+set pages 50000 lines 200
+column shared_mem_mb format 999,999,999.99
+select *
+from (
+   select plan_hash_value, count(distinct sql_id), count(*), sum(sharable_mem)/1024/1024 shared_mem_mb
+   from v$sql
+   group by plan_hash_value
+   order by 2 desc
+) where rownum<21;
+ 
+/*
+25928448    392199  393845  10354,19017505645751953125 ---->>>> 400k queries , not using binds , 
+1388734953  12520   12653   322,4933452606201171875
+2960905592  11664   11684   584,28718090057373046875
+1363146244  11211   11217   513,89469146728515625
+3887595290  5280    5291    451,02771472930908203125
+513338119   5233    5235    574,43505096435546875
+3242581734  1017    1017    2105,2791767120361328125
+*/
+ 
+ 
+select PARSING_SCHEMA_NAME,sql_id, sql_text,executions,FIRST_LOAD_TIME,last_active_time from v$sql where rownum<100 and plan_hash_value=25928448 order by last_active_time desc;
+ 
+select sql_id, sql_text from v$sql where rownum<21 and plan_hash_value=25928448;
+select sql_id, sql_text from v$sql where rownum<21 and plan_hash_value=1388734953;
+select sql_id, sql_text from v$sql where rownum<21 and plan_hash_value=2960905592;
+select sql_id, sql_text from v$sql where rownum<21 and plan_hash_value=1363146244;
+select sql_id, sql_text from v$sql where rownum<21 and plan_hash_value=3887595290;
+select sql_id, sql_text from v$sql where rownum<21 and plan_hash_value=3242581734;
