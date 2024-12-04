@@ -1,0 +1,6 @@
+grant select any dictionary to dbsnmp;
+grant create session to dbsnmp;
+GRANT OEM_ADVISOR TO DBSNMP;
+GRANT OEM_MONITOR TO DBSNMP;
+grant execute on sys.dbms_workload_repository to dbsnmp; 
+grant select any  table to dbsnmp;
