@@ -1,0 +1,8 @@
+
+alter table RASH.PRODTAB move tablespace DATA_NEW parallel 16 ;
+alter table RASH.PRODTAB NOPARALLEL;
+
+table movedan sonra index rebuild yapılmalıdır
+
+alter index RASH.PRODTABPK REBUILD ONLINE parallel 16 tablespace TSIDX_DATA;
+alter index RASH.PRODTABPK NOPARALLEL;
