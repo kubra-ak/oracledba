@@ -1,0 +1,89 @@
+startup nomount;
+
+rman target /
+
+restore controlfile from '/tmp/cnt_300522_BSPR_20220530_4322954_1.bck';
+
+alter database mount;
+
+
+----cat restore_BSPR.rman
+
+run
+{
+allocate channel ch00 type 'sbt_tape' parms 'ENV=(NB_ORA_CLIENT=lhsdbp01)';
+allocate channel ch01 type 'sbt_tape' parms 'ENV=(NB_ORA_CLIENT=lhsdbp01)';
+allocate channel ch02 type 'sbt_tape' parms 'ENV=(NB_ORA_CLIENT=lhsdbp01)';
+allocate channel ch03 type 'sbt_tape' parms 'ENV=(NB_ORA_CLIENT=lhsdbp01)';
+allocate channel ch04 type 'sbt_tape' parms 'ENV=(NB_ORA_CLIENT=lhsdbp01)';
+allocate channel ch05 type 'sbt_tape' parms 'ENV=(NB_ORA_CLIENT=lhsdbp01)';
+allocate channel ch06 type 'sbt_tape' parms 'ENV=(NB_ORA_CLIENT=lhsdbp01)';
+allocate channel ch07 type 'sbt_tape' parms 'ENV=(NB_ORA_CLIENT=lhsdbp01)';
+allocate channel ch08 type 'sbt_tape' parms 'ENV=(NB_ORA_CLIENT=lhsdbp01)';
+allocate channel ch09 type 'sbt_tape' parms 'ENV=(NB_ORA_CLIENT=lhsdbp01)';
+set newname for database to '+BSPRDATA00';
+restore database ;
+switch datafile all;
+RELEASE CHANNEL ch00;
+RELEASE CHANNEL ch01;
+RELEASE CHANNEL ch02;
+RELEASE CHANNEL ch03;
+RELEASE CHANNEL ch04;
+RELEASE CHANNEL ch05;
+RELEASE CHANNEL ch06;
+RELEASE CHANNEL ch07;
+RELEASE CHANNEL ch08;
+RELEASE CHANNEL ch09;
+}
+
+
+nohup rman target / cmdfile=restore_BSPR.rman log=restore_BSPR_30052022.log &
+
+---restore bittikten sonra
+
+
+Block change tracking disable etmek gerekebiliyor.
+
+alter database disable block change tracking;
+
+
+
+SQL> select min(FHSCN) "LOW FILEHDR SCN"
+  , max(FHSCN) "MAX FILEHDR SCN"
+  , max(FHAFS) "Min PITR ABSSCN"
+ from X$KCVFH;  2    3    4
+
+LOW FILEHDR SCN  MAX FILEHDR SCN  Min PITR ABSSCN
+---------------- ---------------- ----------------
+15494815033659   15496165351499   15496172467395
+
+
+ vi recover_BSPR.rman
+
+run
+{
+allocate channel ch00 type 'sbt_tape' parms 'ENV=(NB_ORA_CLIENT=lhsdbp01)';
+allocate channel ch01 type 'sbt_tape' parms 'ENV=(NB_ORA_CLIENT=lhsdbp01)';
+allocate channel ch02 type 'sbt_tape' parms 'ENV=(NB_ORA_CLIENT=lhsdbp01)';
+allocate channel ch03 type 'sbt_tape' parms 'ENV=(NB_ORA_CLIENT=lhsdbp01)';
+allocate channel ch04 type 'sbt_tape' parms 'ENV=(NB_ORA_CLIENT=lhsdbp01)';
+allocate channel ch05 type 'sbt_tape' parms 'ENV=(NB_ORA_CLIENT=lhsdbp01)';
+allocate channel ch06 type 'sbt_tape' parms 'ENV=(NB_ORA_CLIENT=lhsdbp01)';
+allocate channel ch07 type 'sbt_tape' parms 'ENV=(NB_ORA_CLIENT=lhsdbp01)';
+allocate channel ch08 type 'sbt_tape' parms 'ENV=(NB_ORA_CLIENT=lhsdbp01)';
+allocate channel ch09 type 'sbt_tape' parms 'ENV=(NB_ORA_CLIENT=lhsdbp01)';
+recover database until SCN 15496172467395;
+RELEASE CHANNEL ch00;
+RELEASE CHANNEL ch01;
+RELEASE CHANNEL ch02;
+RELEASE CHANNEL ch03;
+RELEASE CHANNEL ch04;
+RELEASE CHANNEL ch05;
+RELEASE CHANNEL ch06;
+RELEASE CHANNEL ch07;
+RELEASE CHANNEL ch08;
+RELEASE CHANNEL ch09;
+}
+
+
+nohup rman target / cmdfile=recover_BSPR.rman log=recover_BSPR_01062022.log &
