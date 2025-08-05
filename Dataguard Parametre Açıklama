@@ -1,0 +1,63 @@
+---ODMDBTST (Primary) to ODMDBTST_NEW (Standby)
+
+Bazi parametrelerin açiklamasi.
+
+1-) fal_client ve fal_server
+
+	fal_client => standby database için kendisi. log fetch yapan client.
+	fal_server => standby database için archive log fetch edecegi (FAL => fetch archive log) TNS bilgisi. standby primary den fetch ettigi için primary nin TNS bilgisi.
+
+	In Primary site:
+
+	FAL_SERVER=STANDBY
+	FAL_CLIENT=PRIMARY
+
+	In Standby site:
+
+	FAL_SERVER=PRIMARY
+	FAL_CLIENT=STANDBY
+
+2-)LOG_ARCHIVE_CONFIG
+
+	Örnek:
+	log_archive_config='DG_CONFIG=(ODMDBTST,ODMBPREG)' => remote db_unique_name listesi
+	
+	Syntax:
+	LOG_ARCHIVE_CONFIG =
+	{
+	 [ SEND | NOSEND ]
+	 [ RECEIVE | NORECEIVE ]
+	 [ DG_CONFIG=(remote_db_unique_name1 [, ... remote_db_unique_name9) | NODG_CONFIG ]
+	 }
+
+3-)(OPTIONAL) DB_FILE_NAME_CONVERT ve LOG_FILE_NAME_CONVERT  (herzaman zorunlu degil switch over yapilacaksa tavsiye edilir. OMF yapilmadi ise yapilabilir.)	
+
+standby da db_create_file_dest ve log_archive_dest_1 tanimlanmasi bunun yerine yeterlidir.
+
+DB_FILE_NAME_CONVERT ve LOG_FILE_NAME_CONVERT parametreleri Standby da asagidaki gibi setlenebilir..
+
+	LOG_FILE_NAME_CONVERT = 'string1' , 'string2' , 'string3' , 'string4' , ...
+	DB_FILE_NAME_CONVERT = 'string1' , 'string2' , 'string3' , 'string4' , ...
+	Where:
+	string1 is the pattern of the primary database filename
+	string2 is the pattern of the standby database filename
+	string3 is the pattern of the primary database filename
+	string4 is the pattern of the standby database filename 
+
+4-) log_archive_dest_n	(n = 1, 2, 3, ... 31) => Standby database ler için redolog larin arsivlenecegi destination lar.
+
+genelde log_archive_dest_1 i mevcut archivelog lar için local sunucu verdigim için log_archive_dest_2 den basliyorum.
+
+	Syntax:
+	log_archive_dest_n='SERVICE=Standby_TNS LGWR ASYNC VALID_FOR=(ONLINE_LOGFILES,PRIMARY_ROLE) DB_UNIQUE_NAME=<standby_db_unique_name>' sid='*';
+
+	Örnek:
+	log_archive_dest_2='SERVICE=ODMDBTST_NEW LGWR ASYNC VALID_FOR=(ONLINE_LOGFILES,PRIMARY_ROLE) DB_UNIQUE_NAME=ODMBPREG' sid='*';
+		
+5-) LOG_ARCHIVE_DEST_STATE_n (n = 1, 2, 3, ... 31) => archive destination enable mi defer mi edilecek bilgisi.
+
+	enable => archive destinatin enable olur (default)
+
+	defer => archive destination disable olur
+
+	alternate => eger mevcuttaki destination fail olursa enable olur.
