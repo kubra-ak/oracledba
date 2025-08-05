@@ -1,0 +1,27 @@
+SELECT se.username username,
+   se.SID sid, se.serial# serial#,
+   se.status status, se.sql_hash_value,
+   se.prev_hash_value,se.machine machine,
+   su.TABLESPACE tablespace,su.segtype,
+   su.CONTENTS CONTENTS
+   FROM v$session se,
+   v$sort_usage su
+   WHERE se.saddr=su.session_addr;
+
+
+SELECT a.sid,b.inst_id ins
+      ,b.tablespace
+      ,ROUND(((b.blocks*8192)/1024/1024),2)||'M' "SIZE"
+      ,a.sid||','||a.serial# SID_SERIAL
+      ,b.segtype
+      ,a.username
+      ,a.program
+      ,substr(s.SQL_TEXT,1,50) SQL
+      ,b.sqlhash hash_value
+FROM gv$session    a
+    ,gv$sort_usage b
+    ,gv$sqlarea    s
+WHERE a.saddr = b.session_addr
+and a.inst_id=b.inst_id
+and b.sqlhash=s.hash_value
+ORDER BY b.tablespace, b.blocks
