@@ -1,0 +1,5 @@
+select username,sid,serial#,blocking_session,final_blocking_session ,seconds_in_wait,
+(select username from v$session s where s.sid=ps.final_blocking_session and rownum=1) as final_blocking_username
+,(select S.machine from v$session s where s.sid=ps.final_blocking_session and rownum=1) as final_blocking_machine
+from v$session ps
+where blocking_session is not null;
