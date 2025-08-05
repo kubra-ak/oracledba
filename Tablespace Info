@@ -1,0 +1,55 @@
+SELECT TABLESPACE_NAME, STATUS, CONTENTS FROM USER_TABLESPACES;
+
+SELECT  a.tablespace_name,
+    ROUND (((c.BYTES - NVL (b.BYTES, 0)) / c.BYTES) * 100,2) percentage_used,
+    c.BYTES / 1024 / 1024 space_allocated,
+    ROUND (c.BYTES / 1024 / 1024 - NVL (b.BYTES, 0) / 1024 / 1024,2) space_used,
+    ROUND (NVL (b.BYTES, 0) / 1024 / 1024, 2) space_free, 
+    c.DATAFILES
+  FROM dba_tablespaces a,
+       (    SELECT   tablespace_name, 
+                  SUM (BYTES) BYTES
+           FROM   dba_free_space
+       GROUP BY   tablespace_name
+       ) b,
+      (    SELECT   COUNT (1) DATAFILES, 
+                  SUM (BYTES) BYTES, 
+                  tablespace_name
+           FROM   dba_data_files
+       GROUP BY   tablespace_name
+    ) c
+  WHERE b.tablespace_name(+) = a.tablespace_name 
+    AND c.tablespace_name(+) = a.tablespace_name
+ORDER BY NVL (((c.BYTES - NVL (b.BYTES, 0)) / c.BYTES), 0) DESC;
+
+
+
+ORTAM SİZE
+
+SELECT owner, table_name, ROUND(sum(bytes)/1024/1024/1024) GB
+FROM
+(SELECT segment_name table_name, owner, bytes
+FROM dba_segments
+WHERE segment_type IN ('TABLE', 'TABLE PARTITION', 'TABLE SUBPARTITION')
+UNION ALL
+SELECT i.table_name, i.owner, s.bytes
+FROM dba_indexes i, dba_segments s
+WHERE s.segment_name = i.index_name
+AND   s.owner = i.owner
+AND   s.segment_type IN ('INDEX', 'INDEX PARTITION', 'INDEX SUBPARTITION')
+UNION ALL
+SELECT l.table_name, l.owner, s.bytes
+FROM dba_lobs l, dba_segments s
+WHERE s.segment_name = l.segment_name
+and   s.owner = l.owner
+AND   s.segment_type in ('LOBSEGMENT', 'LOB PARTITION', 'LOB SUBPARTITION')
+UNION ALL
+SELECT l.table_name, l.owner, s.bytes
+FROM dba_lobs l, dba_segments s
+WHERE s.segment_name = l.index_name
+AND   s.owner = l.owner
+AND   s.segment_type = 'LOBINDEX')
+
+GROUP BY table_name, owner
+order by sum(bytes) desc
+;
