@@ -1,0 +1,3 @@
+boş gelen bind değerleri için aşağıdaki sorgu kullanılabilir
+
+select position,value_string,ANYDATA.AccessTimestamp(value_anydata),last_captured from gv$sql_bind_capture where sql_id='aphv6wsh1d2jc' and last_captured > sysdate-1
