@@ -7,6 +7,8 @@ SELECT sid, serial#, username
  FROM v$session
 where sid=93 ;
 
+SELECT 'ALTER SYSTEM KILL SESSION '''||sid||','||serial#||''' IMMEDIATE;' FROM gv$session where sql_id='658dx6tzmnpdk'
+
 
 -- SID, SERIAL#
 ALTER SYSTEM KILL SESSION '93, 6425';
