@@ -1,0 +1,12 @@
+AHF INSIGHTS
+EXACHK REPORT
+2550798.1
+
+opt/oracle.ahf
+dat into u02 directory
+
+TFA- TRACE FILE ANALYZER
+
+tfactl diagcollect –srdc <srdc_type>
+tfactl diagcollect –srdc H
+tfactl diagcollect –srdc dbperf
