@@ -12,3 +12,5 @@ tfactl diagcollect –srdc H
 tfactl diagcollect –srdc dbperf
 
 ahf analysis create --type insights --last 2h
+
+tfactl changes
