@@ -10,3 +10,5 @@ TFA- TRACE FILE ANALYZER
 tfactl diagcollect –srdc <srdc_type>
 tfactl diagcollect –srdc H
 tfactl diagcollect –srdc dbperf
+
+ahf analysis create --type insights --last 2h
