@@ -1,0 +1,13 @@
+alter database clear unarchived logfile group 12;
+alter database clear unarchived logfile group 10;
+ALTER DATABASE DROP LOGFILE GROUP 10;
+ALTER DATABASE DROP LOGFILE GROUP 12;
+
+alertlog hata:
+Errors in file /u02/app/oracle/diag/rdbms/aresdrc/ARESDRC1/trace/ARESDRC1_tt00_193007.trc:
+ORA-00313: open failed for members of log group 12 of thread 2
+ORA-00312: online log 12 thread 2: '+RECO_ARESDR/ARESDR/ONLINELOG/group_12.268.1136045629'
+ORA-17503: ksfdopn:2 Failed to open file +RECO_ARESDR/ARESDR/ONLINELOG/group_12.268.1136045629
+ORA-15001: diskgroup "RECO_ARESDR" does not exist or is not mounted
+ORA-15018: diskgroup cannot be created
+ORA-15001: diskgroup "RECO_ARESDR" does not exist or is not mounted
