@@ -23,3 +23,6 @@ select 'alter system kill session ' || '''' || s.sid || ',' || s.serial#||',@'||
 from gv$session s
 WHERE s.type != 'BACKGROUND' and
 s.sid in (select final_blocking_session from gv$session where blocking_session is not null);
+
+alter system kill session '158,401,@1';                                         
+alter system kill session '770,12646,@1';   
