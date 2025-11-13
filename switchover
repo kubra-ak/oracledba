@@ -1,0 +1,589 @@
+--Kontrol Script
+set line 1000
+set pages 1000
+select dest_name,status,database_mode,destination,applied_thread#,applied_seq#,gap_status FROM V$ARCHIVE_DEST_STATUS  where DEST_ID in (2,3);
+select thread#, max(sequence#) from v$log_history group by thread#;
+alter session set nls_date_format='DD-MM-YYYY HH24:MI:SS';
+select thread#, sequence#, first_time from (select * from v$log_history order by first_time desc) where rownum < 4 order by 1,2;
+select inst_id, process, pid, status, thread#, sequence#, block#, blocks from gv$managed_standby where process not in ('ARCH');
+select database_role,switchover_status from v$database;
+select THREAD#,maX(SEQUENCE#),max(NEXT_TIME) from V$ARCHIVED_LOG group by THREAD#;
+select * from v$dataguard_stats;
+select * from v$recovery_progress;
+
+
+
+A) Switchover yapmadan önce veritabanýmýzýn switchover_status durumunu görelim. “TO_STANDBY” þeklinde çýktý almamýz gerekiyor.  
+(SESSIONS ACTIVE görür isek toad securecrt vb session açýk kalmýþ, önemsiz ise kapatmadan da devam edebiliriz)
+
+
+------PROD_THOR
+
+1) Primary DB yi restart yapacagýz
+
+srvctl stop database -d THOR
+srvctl start database -d THOR
+
+ps -ef|grep LOCAL=NO|awk '{print $2}'|xargs kill -9
+
+SELECT 'kill -9 '||v$process.spid FROM  v$session, v$process WHERE v$session.paddr=v$process.addr and v$session.type<>'BACKGROUND' ;
+
+SQL> select database_role,db_unique_name,open_mode,protection_mode,switchover_status from v$database;
+
+DATABASE_ROLE    DB_UNIQUE_NAME                 OPEN_MODE            PROTECTION_MODE      SWITCHOVER_STATUS
+---------------- ------------------------------ -------------------- -------------------- --------------------
+PRIMARY          THOR                           READ WRITE           MAXIMUM PERFORMANCE  TO STANDBY
+
+-- job_queue_processes geçiþ süresince 0 kalacak.
+-- dba_2pc_pending tablosu kontrol edilir.  
+select * from dba_2pc_pending;   --no rows selected
+
+---Eðer dba_2pc_pending kayýt varsa----
+EXECUTE DBMS_TRANSACTION.PURGE_LOST_DB_ENTRY('1.44.99');
+
+create table muratguler.dba_objects_19092022 as select * from dba_objects;
+select currmvowner, currmvname from gv$mvrefresh;  --no rows selected
+
+2) Adým Redolog Çýkarýyoz Prýmary nin 2 node için basýlýr
+alter system switch logfile;
+alter system switch logfile;
+alter system switch logfile;
+alter system switch logfile;
+alter system switch logfile;
+
+SQL> select thread#, max (sequence#) from v$log_history group by thread# order by thread#;
+
+   THREAD# MAX(SEQUENCE#)
+---------- --------------
+         1          49051
+
+ALTER DATABASE BACKUP CONTROLFILE TO '/tmp/controlthor.bkp';
+ALTER DATABASE BACKUP CONTROLFILE TO TRACE;
+
+
+3) Restore point
+SQL> select * from v$restore_point;
+
+SQL> create restore point beforeswitch guarantee flashback database;
+
+SQL> alter system set "_system_trig_enabled"=false scope=both;
+
+alter system set log_archive_dest_state_2=defer;
+alter system set job_queue_processes=0 scope=both sid='*';    --1000
+ALTER SYSTEM SET AQ_TM_PROCESSES=0 SCOPE=BOTH SID='*';
+ALTER SYSTEM SET log_archive_trace=8191 SCOPE=BOTH SID='*';
+alter system set "_ktb_debug_flags"=8 SCOPE=BOTH SID='*';
+
+
+
+4)Prod 2. node down
+
+srvctl stop instance -d THOR  -i THOR2
+
+Backuplarý durduruyoz (Crontab rename edilir.)
+---Arsiv Backup scriptleri rename et -- primary ve standby'da arsiv backup alan ve silen islerin, gecis sirasinda koordinasyonu yapilmali.
+
+mv -i /global/khome25/oracle/netbackup/scripts/KBLIVE_arch.sh /global/khome25/oracle/netbackup/scripts/KBLIVE_arch_sw.sh
+
+
+5). Standby veritabaný durumunu gözlemleyelim ve sequence numarasýnýn primary ile ayný olduðundan emin olalým.
+
+		 
+-------------STANDBY_AZCBS	 
+		 
+
+
+SQL> select database_role,db_unique_name,open_mode,protection_mode,switchover_status from v$database;
+
+DATABASE_ROLE    DB_UNIQUE_NAME                 OPEN_MODE            PROTECTION_MODE      SWITCHOVER_STATUS
+---------------- ------------------------------ -------------------- -------------------- --------------------
+PHYSICAL STANDBY DAZCBS                      MOUNTED              MAXIMUM PERFORMANCE  NOT ALLOWED
+
+
+		 
+SQL> select thread#, max (sequence#) from v$log_history group by thread# order by thread#;
+
+   THREAD# MAX(SEQUENCE#)
+---------- --------------
+         1          49053		 
+
+SQL>		 
+set lines 200
+col name format a40
+col value format 
+select NAME, VALUE ,DATUM_TIME from V$DATAGUARD_STATS;
+
+**
+Standby arsiv silme scriptleri rename et, crontab #
+Crontab ## lenecek
+ALTER DATABASE BACKUP CONTROLFILE TO '/tmp/controlkblive_ural.bkp';
+
+
+6) Restore point
+recover managed standby database cancel;
+create restore point before_switch_ural guarantee flashback database;
+recover managed standby database using current logfile disconnect from session;
+select * from v$restore_point;
+
+SQL> alter system set "_system_trig_enabled"=false scope=both;
+
+     ALTER SYSTEM SET AQ_TM_PROCESSES=0 SCOPE=BOTH SID='*';
+	 alter system set job_queue_processes=0 scope=both sid='*';
+    --- ALTER SYSTEM SET log_archive_trace=8191;
+
+7) Standby 2. node kapanacak 
+
+srvctl stop database -d THORDRC  
+
+8) Sungayte (uzak dataguard)  database down edilir.
+
+sqlplus / as sysdba
+
+ALTER DATABASE RECOVER MANAGED STANDBY DATABASE CANCEL;
+
+shu immediate;
+
+startup;
+
+ALTER DATABASE RECOVER MANAGED STANDBY DATABASE  USING CURRENT LOGFILE DISCONNECT FROM SESSION;
+
+
+
+9) Primary veritabanýný standby olarak switch ederiz. Bu iþlem ayný zamanda veritabanýný kapatýr.
+		 
+-------------PROD_AZCBS
+		
+SQL>  alter database commit to switchover to physical standby with session shutdown; 
+
+-- alertlog'da bunu görmen gerekir.
+Switchover: Complete - Database shutdown required
+Completed: alter database commit to switchover to physical standby with session shutdown
+
+!!!!!!!!!!!!!Eðer bekleme olursa acil durumda!!!!!!!!!!!!!
+SELECT 'kill -9 '||v$process.spid FROM  v$session, v$process WHERE v$session.paddr=v$process.addr and v$session.type<>'BACKGROUND' ;
+ps -ef|grep LOCAL=NO|awk '{print $2}'|xargs kill -9
+
+
+SQL> startup nomount;
+
+Total System Global Area 5229379584 bytes
+Fixed Size                  2190688 bytes
+Variable Size            1308627616 bytes
+Database Buffers         3909091328 bytes
+Redo Buffers                9469952 bytes
+SQL> 
+SQL>  
+SQL> alter database mount standby database;
+
+
+SQL> alter system set log_archive_dest_state_3=defer;
+
+Sistem de?istirildi.
+
+
+
+
+10).  Standby veritabanýmýzý artýk primary olarak set edebiliriz.
+
+-------------STANDBY_AZCBS
+
+
+SQL> alter database commit to switchover to primary;
+
+-- alert log
+alter database commit to switchover to primary with session shutdown
+ALTER DATABASE SWITCHOVER TO PRIMARY
+
+SQL> shutdown immediate;
+
+SQL>  startup ;
+.
+Total System Global Area 3241205760 bytes
+Fixed Size                  2185920 bytes
+Variable Size            2097153344 bytes
+Database Buffers         1124073472 bytes
+Redo Buffers               17793024 bytes
+Veritaban? kullan?ma ac?ld?.
+Veritaban? ac?ld?.
+
+alter system set job_queue_processes=1000 scope=both sid='*'; 
+
+11) Artýk primary olan veritabanýmýz standby, standby olan veritabanýmýz primary olarak çalýþýyor olmalý.
+
+
+SQL> select database_role,db_unique_name,open_mode,protection_mode,switchover_status from v$database;
+
+DATABASE_ROLE    DB_UNIQUE_NAME                 OPEN_MODE            PROTECTION_MODE      SWITCHOVER_STATUS
+---------------- ------------------------------ -------------------- -------------------- --------------------
+PRIMARY          AZCBSN                      READ WRITE           MAXIMUM PERFORMANCE  SESSIONS ACTIVE
+
+
+
+SQL> select thread#, max (sequence#) from v$log_history group by thread# order by thread#;
+
+   THREAD# MAX(SEQUENCE#)
+---------- --------------
+         1          49056
+		 
+12) srvctl start instance -d AZCBSN  -i AZCBS2	 
+		 
+SQL> alter system switch logfile;
+alter system switch logfile;
+alter system switch logfile;
+alter system switch logfile;
+alter system switch logfile;
+alter system switch logfile;
+
+SQL> select thread#, max (sequence#) from v$log_history group by thread# order by thread#;
+
+   THREAD# MAX(SEQUENCE#)
+---------- --------------
+         1          49057		 
+		 
+
+
+-------------PROD_AZCBS
+
+
+SQL> select database_role,db_unique_name,open_mode,protection_mode,switchover_status from v$database;
+
+DATABASE_ROLE    DB_UNIQUE_NAME                 OPEN_MODE            PROTECTION_MODE      SWITCHOVER_STATUS
+---------------- ------------------------------ -------------------- -------------------- --------------------
+PHYSICAL STANDBY AZCBS                       MOUNTED              MAXIMUM PERFORMANCE  NOT ALLOWED
+
+
+13) Yeni yapýda dataguard iþlemini baþlatýrýz. Archivelarýn iþlendiðini kontrol ederiz.
+
+-------------PROD_AZCBS
+ 
+SQL> ALTER DATABASE RECOVER MANAGED STANDBY DATABASE  USING CURRENT LOGFILE DISCONNECT FROM SESSION;
+
+Veritaban? de?istirildi.
+
+SQL> select PROCESS,STATUS,SEQUENCE#,BLOCK# from v$managed_standby;
+
+PROCESS   STATUS        SEQUENCE#     BLOCK#
+--------- ------------ ---------- ----------
+ARCH      CLOSING           49056          1
+ARCH      CONNECTED             0          0
+ARCH      CONNECTED             0          0
+ARCH      CLOSING           49055          1
+RFS       IDLE                  0          0
+RFS       IDLE                  0          0
+RFS       RECEIVING         49057       1306
+RFS       IDLE                  0          0
+MRP0      WAIT_FOR_LOG          0          0
+
+9 sat?rlar? secildi.
+
+SQL> select thread#, max (sequence#) from v$log_history group by thread# order by thread#;
+
+   THREAD# MAX(SEQUENCE#)
+---------- --------------
+         1          49053
+
+SQL>  select PROCESS,STATUS,SEQUENCE#,BLOCK# from v$managed_standby;
+
+PROCESS   STATUS        SEQUENCE#     BLOCK#
+--------- ------------ ---------- ----------
+ARCH      CLOSING           49056          1
+ARCH      CONNECTED             0          0
+ARCH      CONNECTED             0          0
+ARCH      CLOSING           49055          1
+RFS       IDLE                  0          0
+RFS       IDLE                  0          0
+RFS       IDLE              49057       2152
+RFS       IDLE                  0          0
+MRP0      WAIT_FOR_LOG      49057          0
+
+9 sat?rlar? secildi.
+
+
+SQL> select thread#, max (sequence#) from v$log_history group by thread# order by thread#;
+
+   THREAD# MAX(SEQUENCE#)
+---------- --------------
+         1          49057
+
+		 
+11. Uygulamalar artýk yeni yapýda güncellenir, ve bu þekilde sorunsuz çalýþmasý gözlemlenir.
+
+
+
+12. AZCBS veritabanýnda Temp tablespace hatasý aldýðýndan kullanýcýlar uygumaladan login iþlemini gerçekleþtiremedir.Temp tablespace control file da yazýyor fakat fiziksel olarak bulunmasý gereken dizinde bulunmuyordu.
+ORA-25153 : Geçici tablo alaný boþ hatasý alýnýyordu. Bu durumda veritabanýna default olarak tanýmlanan temp tablespaceine baktýk ve yeni bir temp ts yaratarak default olarak yeni yarattýgýmýz ts olarak tanýmladýk.
+
+
+-------------STANDBY_AZCBS
+
+
+SQL> select property_name,property_value from database_properties where property_name='DEFAULT_TEMP_TABLESPACE';
+
+PROPERTY_NAME
+------------------------------
+PROPERTY_VALUE
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+DEFAULT_TEMP_TABLESPACE
+TEMP1
+
+
+SQL> CREATE  TEMPORARY TABLESPACE TEMP2 TEMPFILE 
+  '/ora1/AZCBS/temp2_01.dbf' SIZE 500m  ;
+
+SQL> ALTER DATABASE DEFAULT TEMPORARY TABLESPACE TEMP2;
+
+Veritaban? de?istirildi.
+
+
+13. Uygulamalar login iþlemini gereçekleþtirebildiler. Switchover iþleminin baþarýlý olduðunu gözlemledik.
+
+
+-bash-4.4$ srvctl config database -d AZCBSN
+-bash-4.4$ srvctl modify database -d AZCBSN -s OPEN -r primary 
+-bash-4.4$ srvctl config database -d AZCBSN
+Database unique name: AZCBSN
+Database name: 
+Oracle home: /u01/app/oracle/product/11.2.0/dbhome_1
+Oracle user: oracle
+Spfile: +DG_URAL_DATA/YKBURALTAY/spfileKBLIVE.ora
+Domain: 
+Start options: open
+Stop options: immediate
+Database role: PRIMARY
+Management policy: AUTOMATIC
+Database instance: KBLIVE
+Disk Groups: DG_URAL_REDO_CONT01,DG_URAL_ARCH,DG_URAL_DATA
+Services: KBADHOC,KBADK,KBATM,KBBATCH,KBHARMONI,KBLIVE,KBOTHER
+
+
+*******************************************************************GERÝ DÖNME ÝÞLEMÝ*****************************************************************
+*******************************************************************GERÝ DÖNME ÝÞLEMÝ*****************************************************************
+*******************************************************************GERÝ DÖNME ÝÞLEMÝ*****************************************************************
+*******************************************************************GERÝ DÖNME ÝÞLEMÝ*****************************************************************
+*******************************************************************GERÝ DÖNME ÝÞLEMÝ*****************************************************************
+
+Ayný iþlemler tekrarlanýr.
+
+
+
+>>> Primary tarafta temp ts hatasý olmadýðýndan temp ile ilgili yaptýðýmýz iþlemi geri aldýk.
+
+-------------STANDBY_AZCBS
+
+
+SQL> ALTER DATABASE DEFAULT TEMPORARY TABLESPACE temp1;
+
+Veritaban? de?istirildi.
+
+
+SQL> select thread#, max (sequence#) from v$log_history group by thread# order by thread#;
+
+   THREAD# MAX(SEQUENCE#)
+---------- --------------
+         1          49060
+		 
+		 
+		 
+SQL> select database_role,db_unique_name,open_mode,protection_mode,switchover_status from v$database;
+
+DATABASE_ROLE    DB_UNIQUE_NAME                 OPEN_MODE            PROTECTION_MODE      SWITCHOVER_STATUS
+---------------- ------------------------------ -------------------- -------------------- --------------------
+PRIMARY          DAZCBS                      READ WRITE           MAXIMUM PERFORMANCE  SESSIONS ACTIVE
+
+
+
+SQL> alter database commit to switchover to physical standby with session shutdown;
+
+Veritaban? de?istirildi.
+
+SQL> startup nomount;
+ORACLE an? baslat?ld?.
+
+Total System Global Area 3241205760 bytes
+Fixed Size                  2185920 bytes
+Variable Size            2097153344 bytes
+Database Buffers         1124073472 bytes
+Redo Buffers               17793024 bytes
+SQL> 
+
+SQL> SQL> 
+SQL> 
+SQL> 
+SQL> 
+SQL> 
+SQL> alter database mount standby database;
+
+Veritaban? de?istirildi.
+
+
+SQL> show parameter log_archive_dest_state_3;
+
+NAME                                 TYPE        VALUE
+------------------------------------ ----------- ------------------------------
+log_archive_dest_state_3             string      enable
+log_archive_dest_state_30            string      enable
+log_archive_dest_state_31            string      enable
+SQL> 
+SQL> 
+SQL> 
+SQL> alter system set log_archive_dest_state_3=defer;
+
+Sistem de?istirildi.
+
+SQL> 
+SQL> 
+SQL> 
+SQL> 
+SQL> select switchover_status from v$database;
+
+SWITCHOVER_STATUS
+--------------------
+RECOVERY NEEDED
+
+
+SQL> select open_mode from v$database;
+
+OPEN_MODE
+--------------------
+MOUNTED
+
+
+-------------PROD_AZCBS
+
+
+SQL> alter database commit to switchover to primary;
+
+Veritaban? de?istirildi.
+
+SQL> shutdown immediate;
+ORA-01109: veritaban? ac?k de?il
+
+
+Veritaban? kullan?ma kapat?ld?.
+ORACLE an? kapat?ld?.
+SQL> 
+
+SQL> 
+SQL> startup open;
+ORACLE an? baslat?ld?.
+
+Total System Global Area 5229379584 bytes
+Fixed Size                  2190688 bytes
+Variable Size            1308627616 bytes
+Database Buffers         3909091328 bytes
+Redo Buffers                9469952 bytes
+Veritaban? kullan?ma ac?ld?.
+Veritaban? ac?ld?.
+
+SQL> 
+SQL> 
+SQL>  select database_role,db_unique_name,open_mode,protection_mode,switchover_status from v$database;
+
+DATABASE_ROLE    DB_UNIQUE_NAME                 OPEN_MODE            PROTECTION_MODE      SWITCHOVER_STATUS
+---------------- ------------------------------ -------------------- -------------------- --------------------
+PRIMARY          AZCBS                       READ WRITE           MAXIMUM PERFORMANCE  NOT ALLOWED
+
+
+SQL> 
+SQL> show parameter log_archive_dest_state_3;
+
+NAME                                 TYPE        VALUE
+------------------------------------ ----------- ------------------------------
+log_archive_dest_state_3             string      DEFER
+log_archive_dest_state_30            string      enable
+log_archive_dest_state_31            string      enable
+
+SQL> 
+SQL> alter system set log_archive_dest_state_3=enable;
+
+Sistem de?istirildi.
+
+SQL> select thread#, max (sequence#) from v$log_history group by thread# order by thread#;
+
+   THREAD# MAX(SEQUENCE#)
+---------- --------------
+         1          49062
+
+SQL> 
+SQL> alter system switch logfile;
+
+Sistem de?istirildi.
+
+SQL> select thread#, max (sequence#) from v$log_history group by thread# order by thread#;
+
+   THREAD# MAX(SEQUENCE#)
+---------- --------------
+         1          49063
+
+		 
+-------------STANDBY_AZCBS
+
+
+SQL>  ALTER DATABASE RECOVER MANAGED STANDBY DATABASE DISCONNECT FROM SESSION;		 
+		 
+SQL> select PROCESS,STATUS,SEQUENCE#,BLOCK# from v$managed_standby;
+
+PROCESS   STATUS        SEQUENCE#     BLOCK#
+--------- ------------ ---------- ----------
+ARCH      CONNECTED             0          0
+ARCH      CONNECTED             0          0
+ARCH      CONNECTED             0          0
+ARCH      CLOSING           49062          1
+RFS       IDLE                  0          0
+RFS       IDLE              49063         29
+RFS       IDLE                  0          0
+MRP0      WAIT_FOR_LOG          0          0
+
+8 sat?rlar? secildi.		 
+		 
+SQL> select thread#, max (sequence#) from v$log_history group by thread# order by thread#;
+
+   THREAD# MAX(SEQUENCE#)
+---------- --------------
+         1          49063
+
+		 
+		 
+		 
+		 
+-------------PROD_AZCBS
+
+
+
+SQL> select tablespace_name from dba_tablespaces where tablespace_name like '%TEMP%'
+  2  ;
+
+TABLESPACE_NAME
+------------------------------
+TEMP1
+TEMP2
+
+
+SQL> 
+SQL> select property_name,property_value from database_properties where property_name='DEFAULT_TEMP_TABLESPACE';
+
+PROPERTY_NAME
+------------------------------
+PROPERTY_VALUE
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+DEFAULT_TEMP_TABLESPACE
+TEMP1
+
+
+SQL> DROP TABLESPACE TEMP2 INCLUDING CONTENTS AND DATAFILES;
+
+Tablo alan? dusuruldu.
+
+SQL>  
+SQL> exit
+
+
+
+
+		 
+		 
+		 
+
+
+		 
+		 
