@@ -1,0 +1,427 @@
+--Kontrol Script
+set line 1000
+set pages 1000
+select dest_name,status,database_mode,destination,applied_thread#,applied_seq#,gap_status FROM V$ARCHIVE_DEST_STATUS  where DEST_ID in (2,3);
+select thread#, max(sequence#) from v$log_history group by thread#;
+alter session set nls_date_format='DD-MM-YYYY HH24:MI:SS';
+select thread#, sequence#, first_time from (select * from v$log_history order by first_time desc) where rownum < 4 order by 1,2;
+select inst_id, process, pid, status, thread#, sequence#, block#, blocks from gv$managed_standby where process not in ('ARCH');
+select database_role,switchover_status from v$database;
+select THREAD#,maX(SEQUENCE#),max(NEXT_TIME) from V$ARCHIVED_LOG group by THREAD#;
+select * from v$dataguard_stats;
+select * from v$recovery_progress;
+
+
+alter system set log_archive_dest_state_4=defer SCOPE=BOTH;	
+
+alter system set log_archive_dest_state_4=enable SCOPE=BOTH;	
+
+
+Switchover  öncesi:
+
+PRİMARY--ORCLDBPRD
+
+1)
+ALTER DATABASE BACKUP CONTROLFILE TO '/tmp/controlORCLDB.bkp';
+ALTER DATABASE BACKUP CONTROLFILE TO TRACE;
+create table C##nadidearslanbay.dba_objects_16122023 as select * from dba_objects;
+select currmvowner, currmvname from gv$mvrefresh;  --no rows selected
+pfile  backup  alınması   
+
+Asagıdaki parametler  değiştirilecek
+Orj:
+ "_system_trig_enabled" true
+ job_queue_processes 1000
+ AQ_TM_PROCESSES=  1
+ 
+ 
+ dr  da
+ 
+ "_system_trig_enabled" true
+ job_queue_processes 0
+ AQ_TM_PROCESSES=  1
+ 
+ 2)
+ 
+ Backuplarý durduruyoz (Crontab rename edilir.)
+---Arsiv Backup scriptleri rename et -- primary ve standby'da arsiv backup alan ve silen islerin, gecis sirasinda koordinasyonu yapilmali.
+ 
+3) ikinci  dataguard  ortamlar ORCLDBSTANDBY KAPATILMASI--
+
+ORCLDBSTBY  kapatılması
+   alter database recover managed standby database cancel;
+		shutdown immediate;
+
+--ORCLDBSTBY 
+ ALTER SYSTEM SET LOG_ARCHIVE_DEST_STATE_2=DEFER scope=both;
+ 
+ select thread#, max (sequence#) from v$log_history group by thread# order by thread#;
+ 
+ 
+4)ORCLDBDR  geciş  yapılacak  ortam  kapatılıp  acılabilir/LOg  archive dest  parameteres  düzeltilmesi---  yapıldıgı  için  atlıyoruz
+
+sqlplus / as sysdba
+
+ALTER DATABASE RECOVER MANAGED STANDBY DATABASE CANCEL;
+
+srvctl stop instance -d ORCLDBDR
+
+srvctl start instance -d ORCLDBDR -o mount 
+
+
+ALTER DATABASE RECOVER MANAGED STANDBY DATABASE  USING CURRENT LOGFILE DISCONNECT FROM SESSION;
+
+
+ALTER SYSTEM SET LOG_ARCHIVE_DEST_2='SERVICE=ORCLDBPRD LGWR ASYNC VALID_FOR=(ONLINE_LOGFILES,PRIMARY_ROLE) DB_UNIQUE_NAME=ORCLDBPRD' scope=both;
+alter system set log_archive_dest_state_2=enable SCOPE=BOTH;	
+
+alter system set log_archive_dest_state_2=defer SCOPE=BOTH;	
+
+ALTER SYSTEM SET LOG_ARCHIVE_DEST_3='SERVICE=ORCLDBST LGWR ASYNC VALID_FOR=(ONLINE_LOGFILES,PRIMARY_ROLE) DB_UNIQUE_NAME=ORCLDBST' scope=both;
+alter system set log_archive_dest_state_3=enable SCOPE=BOTH;
+alter system set log_archive_dest_state_3=defer SCOPE=BOTH;	
+
+
+
+5)ORCLDBDR Restore point/Parametere değişiklikleri
+
+recover managed standby database cancel;
+srvctl stop database -d ORCLDBDR 
+srvctl start database -d ORCLDBDR -o mount
+alter database flashback on;
+create restore point before_switch_ORCLDBDR_1712 guarantee flashback database;
+recover managed standby database using current logfile disconnect from session;
+select * from v$restore_point;
+
+
+alter system set "_system_trig_enabled"=false scope=both;    
+
+SELECT x.ksppinm name, y.ksppstvl VALUE, ksppdesc description
+  FROM x$ksppi x, x$ksppcv y
+ WHERE     x.inst_id = USERENV ('Instance')
+       AND y.inst_id = USERENV ('Instance')
+       AND x.indx = y.indx
+       AND x.ksppinm = '_system_trig_enabled'
+
+ ALTER SYSTEM SET AQ_TM_PROCESSES=0 SCOPE=BOTH SID='*';   --bizde  1
+
+6) Switchover yapmadan önce veritabanýmýzýn switchover_status durumunu görelim. “TO_STANDBY” þeklinde çýktý almamýz gerekiyor.  
+(SESSIONS ACTIVE görür isek toad securecrt vb session açýk kalmýþ, önemsiz ise kapatmadan da devam edebiliriz)
+
+SELECT SWITCHOVER_STATUS FROM V$DATABASE;
+
+
+------PROD_ORCLDB-----------------KESINTI
+
+7) Primary DB yi restart yapacagýz
+
+srvctl stop database -d ORCLDBPRD
+srvctl start database -d ORCLDBPRD -o mount
+select log_mode,FLASHBACK_ON from v$database;
+alter database flashback on;
+srvctl stop database -d ORCLDBPRD
+srvctl start database -d ORCLDBPRD 
+
+srvctl start instance -d ORCLDBPRD -i ORCLDBPRD1
+
+
+ 
+
+select database_role,db_unique_name,open_mode,protection_mode,switchover_status from v$database;
+
+DATABASE_ROLE    DB_UNIQUE_NAME                 OPEN_MODE            PROTECTION_MODE      SWITCHOVER_STATUS
+---------------- ------------------------------ -------------------- -------------------- --------------------
+PRIMARY          ORCLDB                           READ WRITE           MAXIMUM PERFORMANCE  TO STANDBY
+
+
+
+8- Adým Redolog Çýkarýyoz Prýmary nin 2 node için basýlýr
+alter system switch logfile;
+alter system switch logfile;
+alter system switch logfile;
+alter system switch logfile;
+alter system switch logfile;
+
+ select thread#, max (sequence#) from v$log_history group by thread# order by thread#;
+
+
+9- Restore point-PRIMARY
+select log_mode,FLASHBACK_ON from v$database;
+
+select * from v$restore_point;
+create restore point before_switch_ORCLDBPRD_1712 guarantee flashback database;
+alter system set "_system_trig_enabled"=false scope=both;  
+alter system set job_queue_processes=0 scope=both    
+ALTER SYSTEM SET AQ_TM_PROCESSES=0 SCOPE=BOTH ; 
+
+
+SELECT x.ksppinm name, y.ksppstvl VALUE, ksppdesc description
+  FROM x$ksppi x, x$ksppcv y
+ WHERE     x.inst_id = USERENV ('Instance')
+       AND y.inst_id = USERENV ('Instance')
+       AND x.indx = y.indx
+       AND x.ksppinm = '_ktb_debug_flags'
+
+10)
+
+PRİMARY 
+alter system switch logfile;
+alter system switch logfile;
+select thread#, max (sequence#) from v$log_history group by thread# order by thread#;
+
+
+ 
+ Standby veritabaný durumunu gözlemleyelim ve sequence numarasýnýn primary ile ayný olduðundan emin olalým.
+
+		 
+-------------STANDBY_ORCLDBDR	 
+		 
+
+
+select database_role,db_unique_name,open_mode,protection_mode,switchover_status from v$database;
+
+DATABASE_ROLE    DB_UNIQUE_NAME                 OPEN_MODE            PROTECTION_MODE      SWITCHOVER_STATUS
+---------------- ------------------------------ -------------------- -------------------- --------------------
+PHYSICAL STANDBY ORCLDBDR                       READ ONLY WITH APPLY MAXIMUM PERFORMANCE  NOT ALLOWED
+
+
+		 
+ select thread#, max (sequence#) from v$log_history group by thread# order by thread#;
+
+	  
+
+Primary  de  
+
+alter system switch logfile;
+alter system switch logfile;	
+	
+
+11)
+ Primary veritabanýný standby olarak switch ederiz. Bu iþlem ayný zamanda veritabanýný kapatýr.
+		 
+-------------ORCLDBPRD-PRIMARY------
+
+	alter system switch logfile;
+	alter system switch logfile;
+	alter system switch logfile;
+
+		
+  alter database commit to switchover to physical standby with session shutdown; 
+
+-- alertlog'da bunu görmen gerekir.
+Switchover: Complete - Database shutdown required
+Completed: alter database commit to switchover to physical standby with session shutdown
+
+!!!!!!!!!!!!!Eðer bekleme olursa acil durumda!!!!!!!!!!!!!
+SELECT 'kill -9 '||v$process.spid FROM  v$session, v$process WHERE v$session.paddr=v$process.addr and v$session.type<>'BACKGROUND' ;
+ps -ef|grep LOCAL=NO|awk '{print $2}'|xargs kill -9
+
+12)
+
+ startup nomount;
+
+Total System Global Area 5229379584 bytes
+Fixed Size                  2190688 bytes
+Variable Size            1308627616 bytes
+Database Buffers         3909091328 bytes
+Redo Buffers                9469952 bytes
+SQL> 
+SQL>  
+
+13)
+ alter database mount standby database;
+
+
+
+
+
+14)  Standby veritabanýmýzý artýk primary olarak set edebiliriz.
+
+-------------STANDBY_ORCLDBDR --ARTIK PRİMARY OLACAK
+
+
+SQL> 
+
+alter database commit to switchover to primary with session shutdown; 
+
+
+-- alert log
+alter database commit to switchover to primary with session shutdown
+ALTER DATABASE SWITCHOVER TO PRIMARY
+
+SQL> 
+shutdown immediate;
+
+SQL> 
+ startup ;
+.
+Total System Global Area 3241205760 bytes
+Fixed Size                  2185920 bytes
+Variable Size            2097153344 bytes
+Database Buffers         1124073472 bytes
+Redo Buffers               17793024 bytes
+Veritaban? kullan?ma ac?ld?.
+Veritaban? ac?ld?.
+
+Servislerin  kontrolleri
+
+srvctl start service  -d ORCLDBDR 
+
+
+15)YENI  PRIMARY  ORCLDBDR ve  YENI  STANBY  ORCLDBPRD
+alter system set job_queue_processes=1000 scope=both ; 
+
+ALTER SYSTEM SET AQ_TM_PROCESSES=1 SCOPE=BOTH ;  
+
+alter system set "_system_trig_enabled"=true scope=both;
+
+16) 
+YENI STANDBY  ORCLDBPRD DE 
+
+alter database recover managed standby database using current logfile disconnect from session; 
+
+Artýk primary olan veritabanýmýz standby, standby olan veritabanýmýz primary olarak çalýþýyor olmalý.
+
+ select database_role,db_unique_name,open_mode,protection_mode,switchover_status from v$database;
+
+
+SQL> 
+select thread#, max (sequence#) from v$log_history group by thread# order by thread#;
+
+   THREAD# MAX(SEQUENCE#)
+---------- --------------
+         1          49056
+		 
+		 
+		 
+17) DR  tarafta yani  yeni  primary    ORCLDBDR/2.  STANDBY(ORCLDBst)  ORTAM YENI  PRIMARY  ORCLDBDR DA enable  ediliyor
+
+		 
+alter system set log_archive_dest_state_3=enable SCOPE=BOTH;
+
+
+		 
+SQL> alter system switch logfile;
+alter system switch logfile;
+alter system switch logfile;
+alter system switch logfile;
+alter system switch logfile;
+alter system switch logfile;
+
+
+
+
+SQL> select thread#, max (sequence#) from v$log_history group by thread# order by thread#;
+
+   THREAD# MAX(SEQUENCE#)
+---------- --------------
+         1          49057		 
+		 
+
+
+
+
+*******************************************SWITCHBACK**********************************************
+
+YENI PRIMARY ----ORCLDBDR DA  ve  YENI  STANBY  ORCLDBPRD yapılacak
+
+19)  ikinci standby  log transferi durdur.(ORCLDBST)
+
+
+alter system set log_archive_dest_state_3=defer;
+
+aLTER SYSTEM SET AQ_TM_PROCESSES=0 SCOPE=BOTH SID='*'; 
+
+alter system set "_system_trig_enabled"=false scope=both;
+
+alter system set job_queue_processes=0 scope=both ; 
+
+alter database commit to switchover to physical standby with session shutdown;
+
+startup nomount;
+
+alter database mount standby database;
+
+
+
+
+
+20)
+
+YENİ STANDby  ORCLDBPRD DE UYGULANACAK
+
+
+ alter database recover managed standby database cancel;
+
+alter database commit to switchover to primary with session shutdown; 
+
+select database_role from v$database; 
+ 
+---- alertlog'da bunu görmen gerekir.
+Completed: alter database commit to switchover to primary with session shutdown
+
+shutdown immediate;
+
+srvctl start database -d ORCLDBPRD  
+ srvctl start service  -d ORCLDBPRD 
+
+ alter system set log_archive_dest_state_3=enable SCOPE=BOTH;
+
+ALTER SYSTEM SET AQ_TM_PROCESSES=1 SCOPE=BOTH 
+
+alter system set "_system_trig_enabled"=true scope=both;
+
+alter system set job_queue_processes=1000 scope=both ; 
+
+
+SWITCH  BACK  SONRASI  DR ORTAMDA  (ORCLDBDR)LOG APPLY BASLATILDI.
+
+alter database recover managed standby database using current logfile disconnect from session; 
+
+ALTER SYSTEM SET AQ_TM_PROCESSES=1 SCOPE=BOTH 
+
+alter system set "_system_trig_enabled"=true scope=both;
+
+alter system set job_queue_processes=0 scope=both ; 
+
+
+
+21)
+
+
+RESTOREPOINT drop  ediliYor.
+
+DR-
+drop restore point  before_switch_ORCLDBDR_1712 ;
+alter database flashback off;
+
+
+PRIMARY-
+drop restore point  before_switch_ORCLDBPRD_1712 ;
+
+alter database flashback off;
+
+Backup  lar  enable  edilsin.
+
+
+
+
+
+
+   alter system set FAL_SERVER=ORCLDB,ORCLDBSTBY,ORCLDBDR scope=both sid='*';
+
+alter system set log_archive_config='DG_config=(ORCLDB,ORCLDBstby,ORCLDBDR,ORCLDBPRD)'  scope=both; 
+
+
+
+ORCLDBDR=
+  (DESCRIPTION=
+    (ADDRESS=
+      (PROTOCOL=TCP)
+      (HOST=10.10.121.68)
+      (PORT=1521)
+    )
+    (CONNECT_DATA=
+      (SERVICE_NAME=PAYTENDB)
+    )
+  )
