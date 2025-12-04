@@ -49,3 +49,17 @@ END;
 GRANT EXECUTE ON kill_session to schema_owner;
 CREATE PUBLIC SYNONYM kill_session for kill_session;
 
+
+----------------------------------------------------------------------
+
+SET PAGES 200 LINES 200
+SPOOL kill_inactive_sessions.sql
+
+SELECT 'ALTER SYSTEM KILL SESSION ''' || sid || ',' || serial# || ''' IMMEDIATE;' AS kill_cmd
+FROM v$session
+WHERE status = 'INACTIVE'
+  AND username IS NOT NULL
+  AND type = 'USER';
+
+SPOOL OFF;
+
