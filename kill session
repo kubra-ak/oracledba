@@ -63,3 +63,17 @@ WHERE status = 'INACTIVE'
 
 SPOOL OFF;
 
+------------------------------------------------------------------------------
+sql_id ye göre kill eden script
+
+
+SELECT 'ALTER SYSTEM KILL SESSION ''' || sid || ',' || serial# || ''' IMMEDIATE;' AS kill_cmd FROM gv$session WHERE sql_id = 'SQL_ID';
+
+----------------------------------------------------------------------------------
+
+SELECT 'ALTER SYSTEM KILL SESSION ''' || sid || ',' || serial# || ',@' || inst_id || ''' IMMEDIATE;' AS kill_cmd FROM gv$session WHERE username = 'USERNAME' AND type = 'USER';
+
+-------------------------------------------------------------------------------------
+
+
+
