@@ -50,7 +50,7 @@ GRANT EXECUTE ON kill_session to schema_owner;
 CREATE PUBLIC SYNONYM kill_session for kill_session;
 
 
-----------------------------------------------------------------------
+----------------------SUNUCU ÜZERİNDEN KİLL------------------------------------------------
 
 SET PAGES 200 LINES 200
 SPOOL kill_inactive_sessions.sql
@@ -69,11 +69,34 @@ sql_id ye göre kill eden script
 
 SELECT 'ALTER SYSTEM KILL SESSION ''' || sid || ',' || serial# || ''' IMMEDIATE;' AS kill_cmd FROM gv$session WHERE sql_id = 'SQL_ID';
 
+SELECT 'ALTER SYSTEM KILL SESSION ''' || sid || ',' || serial# || ',@' || inst_id || ''' IMMEDIATE;'
+FROM gv$session
+WHERE sql_id = 'b4fbuprqmgkza' 
+--AND username LIKE 'FCEVIK'
+--AND status = 'ACTIVE'
+--AND event LIKE '%seq%';
+
 ----------------------------------------------------------------------------------
 
 SELECT 'ALTER SYSTEM KILL SESSION ''' || sid || ',' || serial# || ',@' || inst_id || ''' IMMEDIATE;' AS kill_cmd FROM gv$session WHERE username = 'USERNAME' AND type = 'USER';
 
 -------------------------------------------------------------------------------------
+
+-----------------------SPID ile kill ---------------------------------------
+
+select 'kill -9 '||spid,sid from v$process,v$session where 
+  v$process.addr = v$session.paddr
+  and addr in 
+  (
+  select paddr from  v$session, v$sqlarea
+  where v$session.sql_id = v$sqlarea.sql_id 
+  and v$session.status='ACTIVE'
+ -- and event like '%single%'
+ --and v$session.SQL_ID='fq83ypvu11d8x'
+  --and username='IDBA'
+  --and v$session.module='MODULE123'
+  and sid=1453
+   )
 
 
 
